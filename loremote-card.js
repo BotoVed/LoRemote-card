@@ -269,9 +269,15 @@ class LoRemoteCard extends HTMLElement {
         .session-name { flex: 1; font-weight: 500; }
         .session-node { color: var(--_secondary-text); font-size: 12px; }
         .session-time { color: var(--_secondary-text); font-size: 11px; }
-        .packet-list {
+        #packet-list {
+          max-height: 350px;
+          overflow-y: auto;
           border: 1px solid var(--_divider);
           border-radius: 6px;
+        }
+        #packet-list.no-scroll {
+          max-height: none;
+          overflow-y: visible;
         }
         .empty {
           color: var(--_secondary-text);
@@ -416,12 +422,9 @@ class LoRemoteCard extends HTMLElement {
     });
     el.innerHTML = html;
     if (data.length > 10) {
-      el.style.maxHeight = '350px';
-      el.style.overflowY = 'scroll';
-      el.style.display = 'block';
+      el.classList.remove('no-scroll');
     } else {
-      el.style.maxHeight = '';
-      el.style.overflowY = '';
+      el.classList.add('no-scroll');
     }
     el.querySelectorAll('.packet-row').forEach(row => {
       row.addEventListener('click', () => {
