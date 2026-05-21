@@ -269,6 +269,14 @@ class LoRemoteCard extends HTMLElement {
         .session-name { flex: 1; font-weight: 500; }
         .session-node { color: var(--_secondary-text); font-size: 12px; }
         .session-time { color: var(--_secondary-text); font-size: 11px; }
+        .packet-list {
+          overflow-y: auto;
+          border: 1px solid var(--_divider);
+          border-radius: 6px;
+        }
+        .packet-list.scrollable {
+          max-height: 300px;
+        }
         .empty {
           color: var(--_secondary-text);
           font-size: 13px;
@@ -348,6 +356,8 @@ class LoRemoteCard extends HTMLElement {
   _renderFilters() {
     const el = this._shadow.getElementById('filters');
     if (!el) return;
+    const listEl = this._shadow.getElementById('packet-list');
+    if (listEl) listEl.classList.remove('scrollable');
     const btns = ['all', 'in', 'out', 'undelivered'];
     const labels = { all: 'Все', in: 'Входящие ↓', out: 'Исходящие ↑', undelivered: 'Недоставленные ✗' };
     el.innerHTML = btns.map(b => `<button class="filter-btn ${this._filter === b ? 'active' : ''}" data-filter="${b}">${labels[b]}</button>`).join('');
@@ -394,6 +404,7 @@ class LoRemoteCard extends HTMLElement {
       if (this._expanded === i) {
         const json = p.payload_json || '';
         const hex = p.payload_hex || '';
+        const jsonObj = (() => { try { return typeof json === 'string' ? JSON.parse(json) : json; } catch { return null; } })();
         html += `<div class="packet-detail">
           <div class="detail-tags">
             <span class="detail-tag tag-dir">${dir}</span>
@@ -403,13 +414,19 @@ class LoRemoteCard extends HTMLElement {
             <span class="detail-tag">rssi=${p.rssi != null ? p.rssi : '—'}</span>
             <span class="detail-tag">snr=${p.snr != null ? p.snr : '—'}</span>
           </div>
-          ${json && json.text ? `<div style="padding:4px;background:var(--_card-bg);border-radius:4px;font-size:13px;">"${json.text}"</div>` : ''}
+          ${jsonObj && jsonObj.text ? `<div style="padding:6px 8px;background:var(--_card-bg);border-radius:4px;font-size:13px;margin-bottom:6px;">💬 "${jsonObj.text}"</div>` : ''}
           ${json ? '<div class="json-block">' + this._highlightJson(json) + '</div>' : ''}
           ${hex ? '<div class="hex-block">' + hex + '</div>' : ''}
         </div>`;
       }
     });
     el.innerHTML = html;
+    const listEl = el;
+    if (data.length > 10) {
+      listEl.classList.add('scrollable');
+    } else {
+      listEl.classList.remove('scrollable');
+    }
     el.querySelectorAll('.packet-row').forEach(row => {
       row.addEventListener('click', () => {
         const idx = parseInt(row.dataset.idx);
