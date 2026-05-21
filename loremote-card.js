@@ -287,7 +287,14 @@ class LoRemoteCard extends HTMLElement {
       </style>
       <div class="card">
         <div class="header">
-          <div class="title">LoRemote</div>
+          <div class="title">
+            <img
+              src="/api/brands/integration/loremote/icon.png"
+              style="width:24px;height:24px;vertical-align:middle;margin-right:6px;border-radius:4px;"
+              onerror="this.style.display='none'"
+            />
+            LoRemote
+          </div>
           <div class="badge ${this._data.status || 'offline'}">${this._data.status || 'offline'}</div>
         </div>
         <div class="metrics">
