@@ -191,8 +191,20 @@ class LoRemoteCard extends HTMLElement {
         .packet-dir.rx { color: var(--_primary-color); }
         .packet-dir.tx { color: var(--_success); }
         .packet-time { flex: 1; color: var(--_secondary-text); font-size: 11px; margin: 0 8px; }
-        .packet-node { width: 50px; font-weight: 500; }
-        .packet-type { flex: 1; color: var(--_secondary-text); }
+        .packet-node {
+          width: 75px;
+          font-family: monospace;
+          font-size: 11px;
+          color: var(--_secondary-text);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .packet-type {
+          flex: 1;
+          font-size: 12px;
+          font-weight: 500;
+        }
         .packet-size { width: 50px; text-align: right; color: var(--_secondary-text); }
         .packet-detail {
           padding: 8px 12px;
@@ -374,10 +386,10 @@ class LoRemoteCard extends HTMLElement {
       html += `<div class="packet-row ${expanded}" data-idx="${i}">
         <span class="packet-dir ${dir}">${dir === 'rx' ? '↓' : '↑'}</span>
         <span class="packet-time">${p.ts ? new Date(p.ts * 1000).toLocaleTimeString() : '—'}</span>
-        <span class="packet-node">${p.node || '—'}</span>
+        <span class="packet-node">!${(p.node||'').replace('!','')}</span>
         <span class="packet-type">${p.ptype || '—'}</span>
         <span class="packet-size">${p.size != null ? p.size + 'B' : '—'}</span>
-        <span class="status-dot ${status}">${statusIcon}</span>
+        <span>${statusIcon}</span>
       </div>`;
       if (this._expanded === i) {
         const json = p.payload_json || '';
@@ -391,6 +403,7 @@ class LoRemoteCard extends HTMLElement {
             <span class="detail-tag">rssi=${p.rssi != null ? p.rssi : '—'}</span>
             <span class="detail-tag">snr=${p.snr != null ? p.snr : '—'}</span>
           </div>
+          ${json && json.text ? `<div style="padding:4px;background:var(--_card-bg);border-radius:4px;font-size:13px;">"${json.text}"</div>` : ''}
           ${json ? '<div class="json-block">' + this._highlightJson(json) + '</div>' : ''}
           ${hex ? '<div class="hex-block">' + hex + '</div>' : ''}
         </div>`;
