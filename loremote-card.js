@@ -170,10 +170,9 @@ class LoRemoteCard extends HTMLElement {
           text-align: center;
           font-size: 11px;
         }
-        .status-dot.delivered { color: var(--_success); }
-        .status-dot.ack { color: var(--_success); }
-        .status-dot.failed { color: var(--_error); }
-        .status-dot.pending { color: var(--_warning); }
+        .status-dot.ok { color: var(--_success); }
+        .status-dot.fail { color: var(--_error); }
+        .status-dot.wait { color: var(--_warning); }
         .packet-row {
           display: flex;
           align-items: center;
@@ -189,8 +188,8 @@ class LoRemoteCard extends HTMLElement {
           width: 24px;
           text-align: center;
         }
-        .packet-dir.in { color: var(--_primary-color); }
-        .packet-dir.out { color: var(--_success); }
+        .packet-dir.rx { color: var(--_primary-color); }
+        .packet-dir.tx { color: var(--_success); }
         .packet-time { flex: 1; color: var(--_secondary-text); font-size: 11px; margin: 0 8px; }
         .packet-node { width: 50px; font-weight: 500; }
         .packet-type { flex: 1; color: var(--_secondary-text); }
@@ -209,10 +208,9 @@ class LoRemoteCard extends HTMLElement {
           background: var(--_card-bg);
         }
         .tag-dir { color: var(--_primary-color); }
-        .tag-status-delivered { color: var(--_success); }
-        .tag-status-ack { color: var(--_success); }
-        .tag-status-failed { color: var(--_error); }
-        .tag-status-pending { color: var(--_warning); }
+        .tag-status-ok { color: var(--_success); }
+        .tag-status-fail { color: var(--_error); }
+        .tag-status-wait { color: var(--_warning); }
         .json-block {
           font-family: 'Fira Code', monospace;
           font-size: 12px;
@@ -298,14 +296,15 @@ class LoRemoteCard extends HTMLElement {
     if (!bar) return;
     const data = this._data.connHistory || [];
     const segments = [];
-    for (let h = 0; h < 24; h++) {
+    const now = Math.floor(Date.now() / 1000);
+    for (let h = 23; h >= 0; h--) {
+      const hourStart = now - h * 3600;
+      const hourEnd = hourStart + 3600;
       const entry = data.find(e => {
-        if (!e.time) return false;
-        const t = new Date(e.time);
-        const now = new Date();
-        return (t.getHours() === h) && (t.getDate() === now.getDate()) && (t.getMonth() === now.getMonth()) && (t.getFullYear() === now.getFullYear());
+        if (!e.ts) return false;
+        return e.ts >= hourStart && e.ts < hourEnd;
       });
-      const status = entry ? (entry.status ? entry.status.toLowerCase() : 'online') : 'offline';
+      const status = entry ? (entry.event ? entry.event.toLowerCase() : 'offline') : 'offline';
       segments.push(status);
     }
     bar.innerHTML = segments.map(s => `<div class="uptime-seg ${s}"></div>`).join('');
@@ -319,9 +318,9 @@ class LoRemoteCard extends HTMLElement {
     let html = '<table><thead><tr><th>Status</th><th>Time</th><th>Duration</th><th>Reason</th></tr></thead><tbody>';
     data.slice(-50).reverse().forEach(d => {
       html += `<tr>
-        <td><span class="status-dot ${d.status ? d.status.toLowerCase() : 'offline'}">${d.status || 'offline'}</span></td>
-        <td>${d.time ? new Date(d.time).toLocaleTimeString() : '—'}</td>
-        <td>${d.duration || '—'}</td>
+        <td><span class="status-dot ${d.event ? d.event.toLowerCase() : 'offline'}">${d.event || 'offline'}</span></td>
+        <td>${d.ts ? new Date(d.ts * 1000).toLocaleTimeString() : '—'}</td>
+        <td>${d.duration_sec != null ? d.duration_sec + 'с' : '—'}</td>
         <td>${d.reason || '—'}</td>
       </tr>`;
     });
@@ -348,48 +347,44 @@ class LoRemoteCard extends HTMLElement {
     if (!el) return;
     let data = this._data.packetLog || [];
     const f = this._filter;
-    if (f === 'in') data = data.filter(p => p.direction === 'in' || p.dir === 'in');
-    else if (f === 'out') data = data.filter(p => p.direction === 'out' || p.dir === 'out');
-    else if (f === 'undelivered') data = data.filter(p => {
-      const s = (p.delivery_status || p.status || '').toLowerCase();
-      return s === 'undelivered' || s === 'failed' || s === 'undelivered';
-    });
+    if (f === 'in') data = data.filter(p => p.dir === 'rx');
+    else if (f === 'out') data = data.filter(p => p.dir === 'tx');
+    else if (f === 'undelivered') data = data.filter(p => p.status === 'fail');
 
     if (!data.length) { el.innerHTML = '<div class="empty">No packets</div>'; return; }
 
     const renderStatusIcon = (status) => {
       const s = (status || '').toLowerCase();
-      if (s.includes('confirmed') || s === 'ack') return '<span style="color:var(--_success)">✓✓</span>';
-      if (s === 'delivered' || s === 'done') return '<span style="color:var(--_success)">✓</span>';
-      if (s === 'failed' || s === 'undelivered') return '<span style="color:var(--_error)">✗</span>';
+      if (s === 'ok') return '<span style="color:var(--_success)">✓</span>';
+      if (s === 'fail') return '<span style="color:var(--_error)">✗</span>';
       return '<span style="color:var(--_warning)">⏱</span>';
     };
 
     let html = '';
     data.forEach((p, i) => {
-      const dir = (p.direction || p.dir || '?');
-      const status = p.delivery_status || p.status || 'pending';
+      const dir = (p.dir || '?');
+      const status = p.status || 'wait';
       const expanded = this._expanded === i ? 'expanded' : '';
       const statusIcon = renderStatusIcon(status);
       html += `<div class="packet-row ${expanded}" data-idx="${i}">
-        <span class="packet-dir ${dir === 'in' ? 'in' : 'out'}">${dir === 'in' ? '↓' : '↑'}</span>
-        <span class="packet-time">${p.time ? new Date(p.time).toLocaleTimeString() : '—'}</span>
+        <span class="packet-dir ${dir}">${dir === 'rx' ? '↓' : '↑'}</span>
+        <span class="packet-time">${p.ts ? new Date(p.ts * 1000).toLocaleTimeString() : '—'}</span>
         <span class="packet-node">${p.node || '—'}</span>
-        <span class="packet-type">${p.type || '—'}</span>
-        <span class="packet-size">${p.size ? p.size + 'B' : '—'}</span>
-        <span class="status-dot ${status.toLowerCase()}">${statusIcon}</span>
+        <span class="packet-type">${p.ptype || '—'}</span>
+        <span class="packet-size">${p.size != null ? p.size + 'B' : '—'}</span>
+        <span class="status-dot ${status}">${statusIcon}</span>
       </div>`;
       if (this._expanded === i) {
-        const json = p.json || p.payload || p.data;
-        const hex = p.hex || '';
+        const json = p.payload_json || '';
+        const hex = p.payload_hex || '';
         html += `<div class="packet-detail">
           <div class="detail-tags">
             <span class="detail-tag tag-dir">${dir}</span>
-            <span class="detail-tag tag-status-${status.toLowerCase()}">${status}</span>
-            <span class="detail-tag">${p.size ? p.size + 'B' : '—'}</span>
-            <span class="detail-tag">hop=${p.hop || '—'}</span>
-            <span class="detail-tag">rssi=${p.rssi || '—'}</span>
-            <span class="detail-tag">snr=${p.snr || '—'}</span>
+            <span class="detail-tag tag-status-${status}">${status}</span>
+            <span class="detail-tag">${p.size != null ? p.size + 'B' : '—'}</span>
+            <span class="detail-tag">hop=${p.hop != null ? p.hop : '—'}</span>
+            <span class="detail-tag">rssi=${p.rssi != null ? p.rssi : '—'}</span>
+            <span class="detail-tag">snr=${p.snr != null ? p.snr : '—'}</span>
           </div>
           ${json ? '<div class="json-block">' + this._highlightJson(json) + '</div>' : ''}
           ${hex ? '<div class="hex-block">' + hex + '</div>' : ''}
@@ -429,10 +424,10 @@ class LoRemoteCard extends HTMLElement {
     };
     el.innerHTML = `<div class="session-list">${data.map(s => `
       <div class="session-row">
-        <div class="session-avatar">${initials(s.name)}</div>
-        <span class="session-name">${s.name || '—'}</span>
+        <div class="session-avatar">${initials(s.user_name)}</div>
+        <span class="session-name">${s.user_name || '—'}</span>
         <span class="session-node">${s.node || '—'}</span>
-        <span class="session-time">${s.time ? new Date(s.time).toLocaleTimeString() : '—'}</span>
+        <span class="session-time">${s.ts ? new Date(s.ts * 1000).toLocaleTimeString() : '—'}</span>
       </div>
     `).join('')}</div>`;
   }
