@@ -270,12 +270,8 @@ class LoRemoteCard extends HTMLElement {
         .session-node { color: var(--_secondary-text); font-size: 12px; }
         .session-time { color: var(--_secondary-text); font-size: 11px; }
         .packet-list {
-          overflow-y: auto;
           border: 1px solid var(--_divider);
           border-radius: 6px;
-        }
-        .packet-list.scrollable {
-          max-height: 300px;
         }
         .empty {
           color: var(--_secondary-text);
@@ -356,8 +352,6 @@ class LoRemoteCard extends HTMLElement {
   _renderFilters() {
     const el = this._shadow.getElementById('filters');
     if (!el) return;
-    const listEl = this._shadow.getElementById('packet-list');
-    if (listEl) listEl.classList.remove('scrollable');
     const btns = ['all', 'in', 'out', 'undelivered'];
     const labels = { all: 'Все', in: 'Входящие ↓', out: 'Исходящие ↑', undelivered: 'Недоставленные ✗' };
     el.innerHTML = btns.map(b => `<button class="filter-btn ${this._filter === b ? 'active' : ''}" data-filter="${b}">${labels[b]}</button>`).join('');
@@ -421,11 +415,13 @@ class LoRemoteCard extends HTMLElement {
       }
     });
     el.innerHTML = html;
-    const listEl = el;
     if (data.length > 10) {
-      listEl.classList.add('scrollable');
+      el.style.maxHeight = '350px';
+      el.style.overflowY = 'scroll';
+      el.style.display = 'block';
     } else {
-      listEl.classList.remove('scrollable');
+      el.style.maxHeight = '';
+      el.style.overflowY = '';
     }
     el.querySelectorAll('.packet-row').forEach(row => {
       row.addEventListener('click', () => {
