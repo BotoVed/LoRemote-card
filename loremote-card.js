@@ -3,12 +3,24 @@ class LoRemoteCard extends HTMLElement {
     super();
     this._shadow = this.attachShadow({ mode: 'open' });
     this._hass = null;
+    this._config = {};
     this._data = {};
     this._filter = 'all';
     this._expanded = null;
     this._status = 'offline';
+  }
+
+  setConfig(config) {
+    this._config = config;
+    if (this._hass) {
+      this._collect();
+    }
     this._render();
   }
+
+  getCardSize() { return 1; }
+
+  static getConfigElement() { return document.createElement('loremote-card'); }
 
   set hass(hass) {
     this._hass = hass;
