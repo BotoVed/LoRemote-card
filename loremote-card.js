@@ -274,13 +274,13 @@ class LoRemoteCard extends HTMLElement {
           <div class="metric">Uptime 24h: <span class="metric-value">${this._data.uptime || '0'}%</span></div>
         </div>
         <div class="uptime-bar" id="uptime-bar"></div>
-        <div class="section-title">Connection History</div>
+        <div class="section-title">ИСТОРИЯ ПОДКЛЮЧЕНИЙ</div>
         <div id="conn-table"></div>
-        <div class="section-title">Packet Filters</div>
+        <div class="section-title">ФИЛЬТРЫ</div>
         <div class="filters" id="filters"></div>
-        <div class="section-title">Packet Log</div>
+        <div class="section-title">ЛОГ ПАКЕТОВ</div>
         <div id="packet-list"></div>
-        <div class="section-title">Sessions</div>
+        <div class="section-title">СЕССИИ</div>
         <div id="session-list"></div>
       </div>
     `;
@@ -297,15 +297,20 @@ class LoRemoteCard extends HTMLElement {
     const data = this._data.connHistory || [];
     const segments = [];
     const now = Math.floor(Date.now() / 1000);
+    // Отсортировать события по ts
+    const sorted = [...data].filter(e => e.ts).sort((a, b) => a.ts - b.ts);
     for (let h = 23; h >= 0; h--) {
-      const hourStart = now - h * 3600;
-      const hourEnd = hourStart + 3600;
-      const entry = data.find(e => {
-        if (!e.ts) return false;
-        return e.ts >= hourStart && e.ts < hourEnd;
-      });
-      const status = entry ? (entry.event ? entry.event.toLowerCase() : 'offline') : 'offline';
-      segments.push(status);
+      const hourEnd = now - h * 3600;
+      // Найти последнее событие ДО конца этого часа
+      let lastEvent = null;
+      for (const e of sorted) {
+        if (e.ts < hourEnd) {
+          lastEvent = e;
+        } else {
+          break;
+        }
+      }
+      segments.push(lastEvent ? lastEvent.event.toLowerCase() : 'offline');
     }
     bar.innerHTML = segments.map(s => `<div class="uptime-seg ${s}"></div>`).join('');
   }
