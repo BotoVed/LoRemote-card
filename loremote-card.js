@@ -8,6 +8,8 @@ class LoRemoteCard extends HTMLElement {
     this._filter = 'all';
     this._expanded = null;
     this._status = 'offline';
+    this._tab = 'monitor';
+    this._qrlibLoaded = false;
   }
 
   setConfig(config) {
@@ -284,12 +286,94 @@ class LoRemoteCard extends HTMLElement {
           font-size: 13px;
           padding: 8px;
         }
+        .tabs {
+          display: flex;
+          border-bottom: 1px solid var(--_divider);
+          margin-bottom: 12px;
+        }
+        .tab-btn {
+          flex: 1;
+          padding: 8px;
+          border: none;
+          background: transparent;
+          color: var(--_secondary-text);
+          font-size: 13px;
+          cursor: pointer;
+          border-bottom: 2px solid transparent;
+          transition: all 0.15s;
+        }
+        .tab-btn.active {
+          color: var(--_primary-color);
+          border-bottom-color: var(--_primary-color);
+        }
+        .users-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .user-card {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px;
+          border-radius: 8px;
+          border: 1px solid var(--_divider);
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .user-card:hover { background: var(--_divider); }
+        .user-avatar {
+          width: 36px; height: 36px;
+          border-radius: 50%;
+          background: var(--_primary-color);
+          color: #fff;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 12px; font-weight: 600;
+          flex-shrink: 0;
+        }
+        .user-name { font-weight: 500; }
+        .user-role {
+          font-size: 11px;
+          color: var(--_secondary-text);
+        }
+        .no-config {
+          color: var(--_secondary-text);
+          font-size: 13px;
+          padding: 16px;
+          text-align: center;
+        }
+        .qr-overlay {
+          position: fixed; inset: 0; z-index: 9999;
+          background: rgba(0,0,0,0.5);
+          display: flex; align-items: center; justify-content: center;
+        }
+        .qr-modal {
+          background: var(--_card-bg);
+          border-radius: 12px;
+          padding: 24px;
+          text-align: center;
+          max-width: 280px;
+          width: 90%;
+        }
+        .qr-modal h3 { margin: 0 0 16px; font-size: 16px; }
+        .qr-modal p { font-size: 12px; color: var(--_secondary-text); margin: 12px 0 16px; }
+        .qr-close {
+          padding: 8px 24px;
+          border: none;
+          border-radius: 8px;
+          background: var(--_primary-color);
+          color: #fff;
+          cursor: pointer;
+          font-size: 14px;
+        }
+        #tab-users { display: none; }
+        #tab-monitor { display: block; }
       </style>
       <div class="card">
         <div class="header">
           <div class="title">
             <img
-              src="data:image/png;base64,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"
+              src="https://raw.githubusercontent.com/BotoVed/LoRemote/main/loremote-card/brand/icon.png"
               style="width:24px;height:24px;vertical-align:middle;margin-right:6px;border-radius:4px;"
               onerror="this.style.display='none'"
             />
@@ -297,27 +381,53 @@ class LoRemoteCard extends HTMLElement {
           </div>
           <div class="badge ${this._data.status || 'offline'}">${this._data.status || 'offline'}</div>
         </div>
-        <div class="metrics">
-          <div class="metric">Node: <span class="metric-value">${this._data.nodeId || '—'}</span></div>
-          <div class="metric">Devices: <span class="metric-value">${this._data.devices || '0'}</span></div>
-          <div class="metric">Uptime 24h: <span class="metric-value">${this._data.uptime || '0'}%</span></div>
+        <div class="tabs">
+          <button class="tab-btn ${this._tab === 'monitor' ? 'active' : ''}" data-tab="monitor">Мониторинг</button>
+          <button class="tab-btn ${this._tab === 'users' ? 'active' : ''}" data-tab="users">Пользователи</button>
         </div>
-        <div class="uptime-bar" id="uptime-bar"></div>
-        <div class="section-title">ИСТОРИЯ ПОДКЛЮЧЕНИЙ</div>
-        <div id="conn-table"></div>
-        <div class="section-title">ФИЛЬТРЫ</div>
-        <div class="filters" id="filters"></div>
-        <div class="section-title">ЛОГ ПАКЕТОВ</div>
-        <div id="packet-list"></div>
-        <div class="section-title">СЕССИИ</div>
-        <div id="session-list"></div>
+        <div id="tab-monitor">
+          <div class="metrics">
+            <div class="metric">Node: <span class="metric-value">${this._data.nodeId || '—'}</span></div>
+            <div class="metric">Devices: <span class="metric-value">${this._data.devices || '0'}</span></div>
+            <div class="metric">Uptime 24h: <span class="metric-value">${this._data.uptime || '0'}%</span></div>
+          </div>
+          <div class="uptime-bar" id="uptime-bar"></div>
+          <div class="section-title">ИСТОРИЯ ПОДКЛЮЧЕНИЙ</div>
+          <div id="conn-table"></div>
+          <div class="section-title">ФИЛЬТРЫ</div>
+          <div class="filters" id="filters"></div>
+          <div class="section-title">ЛОГ ПАКЕТОВ</div>
+          <div id="packet-list"></div>
+          <div class="section-title">СЕССИИ</div>
+          <div id="session-list"></div>
+        </div>
+        <div id="tab-users">
+          <div class="users-list" id="users-list"></div>
+        </div>
       </div>
     `;
+
+    this._shadow.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._tab = btn.dataset.tab;
+        this._renderTabs();
+      });
+    });
+
     this._renderUptimeBar();
     this._renderConnTable();
     this._renderFilters();
     this._renderPackets();
     this._renderSessions();
+    this._renderUsers();
+  }
+
+  _renderTabs() {
+    this._shadow.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === this._tab);
+    });
+    this._shadow.getElementById('tab-monitor').style.display = this._tab === 'monitor' ? 'block' : 'none';
+    this._shadow.getElementById('tab-users').style.display = this._tab === 'users' ? 'block' : 'none';
   }
 
   _renderUptimeBar() {
@@ -326,11 +436,9 @@ class LoRemoteCard extends HTMLElement {
     const data = this._data.connHistory || [];
     const segments = [];
     const now = Math.floor(Date.now() / 1000);
-    // Отсортировать события по ts
     const sorted = [...data].filter(e => e.ts).sort((a, b) => a.ts - b.ts);
     for (let h = 23; h >= 0; h--) {
       const hourEnd = now - h * 3600;
-      // Найти последнее событие ДО конца этого часа
       let lastEvent = null;
       for (const e of sorted) {
         if (e.ts < hourEnd) {
@@ -471,6 +579,100 @@ class LoRemoteCard extends HTMLElement {
         <span class="session-time">${s.ts ? new Date(s.ts * 1000).toLocaleTimeString() : '—'}</span>
       </div>
     `).join('')}</div>`;
+  }
+
+  _renderUsers() {
+    const el = this._shadow.getElementById('users-list');
+    if (!el) return;
+    const users = (window.LORA_CONFIG && window.LORA_CONFIG.usr) || [];
+    if (!users.length) {
+      el.innerHTML = '<div class="no-config">Настройте LORA_CONFIG в HTML-клиенте</div>';
+      return;
+    }
+    const initials = (name) => {
+      return name ? name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) : '?';
+    };
+    const roleLabel = (rol) => {
+      if (rol === 'adm') return 'Администратор';
+      if (rol === 'viw') return 'Только просмотр';
+      return rol;
+    };
+    el.innerHTML = users.map(u => `
+      <div class="user-card" data-user-id="${u.id}">
+        <div class="user-avatar">${initials(u.n)}</div>
+        <div>
+          <div class="user-name">${u.n || '—'}</div>
+          <div class="user-role">${roleLabel(u.rol)}</div>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('.user-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const userId = card.dataset.userId;
+        const user = users.find(u => u.id === userId);
+        if (user) this._showUserQR(user);
+      });
+    });
+  }
+
+  _buildQRPayload() {
+    const cfg = window.LORA_CONFIG || {};
+    return JSON.stringify({
+      gw:   cfg.gw   || '',
+      ch:   cfg.ch   || '',
+      key:  cfg.key  || '',
+      n:    cfg.n    || '',
+      cfgh: cfg.cfgh || '',
+    }, null, 0);
+  }
+
+  async _loadQRLib() {
+    return new Promise((resolve) => {
+      if (window.QRCode) { resolve(); return; }
+      if (this._qrlibLoaded) { resolve(); return; }
+      this._qrlibLoaded = true;
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+      s.onload = resolve;
+      s.onerror = resolve;
+      document.head.appendChild(s);
+    });
+  }
+
+  async _showUserQR(user) {
+    await this._loadQRLib();
+    const existing = document.getElementById('loremote-qr-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'loremote-qr-overlay';
+    overlay.className = 'qr-overlay';
+    overlay.innerHTML = `
+      <div class="qr-modal">
+        <h3>${user.n || '—'}</h3>
+        <div id="qr-canvas"></div>
+        <p>Пароль вводится вручную при первом входе</p>
+        <button class="qr-close" id="qr-close-btn">Закрыть</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target.id === 'loremote-qr-overlay' || e.target.id === 'qr-close-btn') {
+        overlay.remove();
+      }
+    });
+
+    const payload = this._buildQRPayload();
+    setTimeout(() => {
+      if (window.QRCode) {
+        new QRCode(overlay.querySelector('#qr-canvas'), {
+          text: payload,
+          width: 200,
+          height: 200,
+        });
+      }
+    }, 100);
   }
 
   _getState(id) {
